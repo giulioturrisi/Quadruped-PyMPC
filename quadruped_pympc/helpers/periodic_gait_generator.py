@@ -111,4 +111,4 @@ class PeriodicGaitGenerator:
                 contact_sequence[:, i] = self.run(dt, self.step_freq)
             self.set_phase_signal(t_init, init_init)
             return contact_sequence
-
+        

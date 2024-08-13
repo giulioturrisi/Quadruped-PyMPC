@@ -169,6 +169,7 @@ simulation_params = {
 
     # Visual Foothold adapatation
     "visual_foothold_adaptation":  'blind', #'blind', 'height', 'vfa'
+    "early_contact_detection":      False,
 
     # this is the integration time used in the simulator
     'dt':                          0.002,
@@ -198,7 +199,7 @@ simulation_params = {
 
     'use_kind_of_real_time':       True,
 
-    'scene':                       'flat',  # flat, rough, stairs, random_boxes, random_pyramids, suspend_stairs, slope, perlin, image
+    'scene':                       'random_boxes',  # flat, rough, stairs, random_boxes, random_pyramids, suspend_stairs, slope, perlin, image
 
     }
 # -----------------------------------------------------------------------

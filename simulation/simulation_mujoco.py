@@ -23,7 +23,7 @@ if(cfg.simulation_params['visual_foothold_adaptation'] != 'blind'):
     from quadruped_pympc.helpers.visual_foothold_adaptation import VisualFootholdAdaptation
 from gym_quadruped.utils.mujoco.visual import render_sphere
 
-
+from quadruped_pympc.helpers.contact_detector import ContactDetector
 
 
 if __name__ == '__main__':
@@ -161,6 +161,9 @@ if __name__ == '__main__':
     terrain_computation = TerrainEstimator()
 
 
+    # Contact detector -----------------------------------------------------------------------
+    contact_detector = ContactDetector()
+
     # Initialization of variables used in the main control loop --------------------------------
     # Set the reference for the state
     ref_pose = np.array([0, 0, cfg.hip_height])
@@ -246,6 +249,12 @@ if __name__ == '__main__':
                                         contact_sequence[1][0],
                                         contact_sequence[2][0],
                                         contact_sequence[3][0]])
+            
+            if(cfg.simulation_params['early_contact_detection'] == True):
+                contact_state, feet_contacts, feet_GRF = env.feet_contact_state(ground_reaction_forces = True)
+                current_contact = contact_detector.early_contact_update(contact_state, contact_sequence, current_contact, 
+                                                           stc.swing_time, stc.swing_period, feet_GRF)
+ 
 
 
             # Compute the reference for the footholds ---------------------------------------------------
