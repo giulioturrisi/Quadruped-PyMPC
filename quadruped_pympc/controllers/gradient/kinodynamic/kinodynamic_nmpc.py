@@ -3,7 +3,7 @@
 # Authors: Giulio Turrisi - 
 
 from acados_template import AcadosOcp, AcadosOcpSolver
-from .model_kinodynamic import Model_KinoDynamic
+from .kinodynamic_model import KinoDynamic_Model
 import numpy as np
 import scipy.linalg
 import casadi as cs
@@ -56,7 +56,7 @@ class Acados_NMPC_KinoDynamic:
 
         
         # Create the class of the centroidal model and instantiate the acados model
-        self.centroidal_model = Model_KinoDynamic()
+        self.centroidal_model = KinoDynamic_Model()
         acados_model = self.centroidal_model.export_robot_model()
         self.states_dim = acados_model.x.size()[0]
         self.inputs_dim = acados_model.u.size()[0]
@@ -1109,21 +1109,21 @@ class Acados_NMPC_KinoDynamic:
             lb_no_slip_foot_vel[6:9] = lb_no_slip_foot_vel[6:9]*(1-contact_sequence[2,j])
             lb_no_slip_foot_vel[9:12] = lb_no_slip_foot_vel[9:12]*(1-contact_sequence[3,j])
 
-            ub_total = np.concatenate((ub_friction, ub_no_slip_foot_vel))
-            lb_total = np.concatenate((lb_friction, lb_no_slip_foot_vel))
+            #ub_total = np.concatenate((ub_friction, ub_no_slip_foot_vel))
+            #lb_total = np.concatenate((lb_friction, lb_no_slip_foot_vel))
 
             #print("j", j)
             self.acados_ocp_solver.constraints_set(j, "uh", ub_total)
             self.acados_ocp_solver.constraints_set(j, "lh", lb_total)
 
 
-            """# Only friction costraints at the beginning
+            # Only friction costraints at the beginning
             if(j == 0):
                 self.acados_ocp_solver.constraints_set(j, "uh", ub_friction)
                 self.acados_ocp_solver.constraints_set(j, "lh", lb_friction)
             if(j > 0):
                 self.acados_ocp_solver.constraints_set(j, "uh", ub_total)
-                self.acados_ocp_solver.constraints_set(j, "lh", lb_total)"""
+                self.acados_ocp_solver.constraints_set(j, "lh", lb_total)
 
 
 
@@ -1379,10 +1379,11 @@ class Acados_NMPC_KinoDynamic:
 
 
 
+
         # Set stage constraint
         h_R_w = np.array([np.cos(yaw), np.sin(yaw),
                         -np.sin(yaw), np.cos(yaw)])
-        #self.set_stage_constraint(constraint, state, reference, contact_sequence, h_R_w, stance_proximity)
+        #self.set_stage_constraint(constraint, state, reference, contact_sequence, h_R_w)
 
         
         # Solve ocp via RTI or normal ocp

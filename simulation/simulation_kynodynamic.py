@@ -81,7 +81,7 @@ if __name__ == '__main__':
     mpc_dt = cfg.mpc_params['dt']
     horizon = cfg.mpc_params['horizon']
 
-    from quadruped_pympc.controllers.gradient.kinodynamic.nmpc_kinodynamic import Acados_NMPC_KinoDynamic
+    from quadruped_pympc.controllers.gradient.kinodynamic.kinodynamic_nmpc import Acados_NMPC_KinoDynamic
     controller = Acados_NMPC_KinoDynamic()
     init_qpos = np.array([0, 0.9, -1.8, 0, 0.9, -1.8, 0, 0.9, -1.8, 0, 0.9, -1.8])
 

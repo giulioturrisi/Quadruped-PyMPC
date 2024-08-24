@@ -17,7 +17,7 @@ import sys
 sys.path.append(dir_path)
 sys.path.append(dir_path + '/../../')
 
-from liecasadi import SE3
+from liecasadi import SO3
 
 from quadruped_pympc import config
 
@@ -37,7 +37,7 @@ else:
  
 
 # Class that defines the prediction model of the NMPC
-class Model_KinoDynamic:
+class KinoDynamic_Model:
     def __init__(self,) -> None: 
 
 
@@ -322,8 +322,6 @@ class Model_KinoDynamic:
         linear_com_vel = states[3:6]
         
 
-        
-        
         # Start to write the component of euler_rates_base and angular_acc_base STATES
         w = states[9:12]
         roll = states[6]
@@ -346,6 +344,8 @@ class Model_KinoDynamic:
 
         # Compute the homogeneous transformation matrix
         b_R_w = self.compute_b_R_w(roll, pitch, yaw)
+        #w_R_b = SO3.from_euler(np.array([roll, pitch, yaw])).as_matrix()
+        #b_R_w = w_R_b.T
         H = cs.SX.eye(4)
         H[0:3, 0:3] = b_R_w.T
         H[0:3, 3] = com_position
@@ -384,6 +384,7 @@ class Model_KinoDynamic:
         temp2 += cs.skew(self.foot_position_fr - com_position)@foot_force_fr@stanceFR
         temp2 += cs.skew(self.foot_position_rl - com_position)@foot_force_rl@stanceRL
         temp2 += cs.skew(self.foot_position_rr - com_position)@foot_force_rr@stanceRR
+        temp2 = temp2 + external_wrench_angular
         angular_acc_base = cs.inv(inertia)@(b_R_w@temp2 - cs.skew(w)@inertia@w)
 
 
@@ -405,7 +406,6 @@ class Model_KinoDynamic:
 
             linear_com_acc = acc[0:3]
             angular_acc_base = acc[3:6]
-
 
 
 
@@ -452,7 +452,7 @@ class Model_KinoDynamic:
         acados_model.xdot = self.states_dot
         acados_model.u = self.inputs
         acados_model.p = self.param
-        acados_model.name = "centroidal_model"
+        acados_model.name = "kinodynamic_model"
 
 
         return acados_model
