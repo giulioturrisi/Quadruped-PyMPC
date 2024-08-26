@@ -23,7 +23,7 @@ from quadruped_pympc import config
 
 use_adam = True
 use_fixed_inertia = True
-use_centroidal_model = True
+use_centroidal_model = False
 
 if(use_adam):
     # ADAM import
@@ -389,19 +389,19 @@ class KinoDynamic_Model:
 
 
         if(not use_centroidal_model):
-            u = self.jacobian_FL_fun(H, joint_position)[0:3, 6:18].T@foot_force_fl@stanceFL
-            u += self.jacobian_FR_fun(H, joint_position)[0:3, 6:18].T@foot_force_fr@stanceFR
-            u += self.jacobian_RL_fun(H, joint_position)[0:3, 6:18].T@foot_force_rl@stanceRL
-            u += self.jacobian_RR_fun(H, joint_position)[0:3, 6:18].T@foot_force_rr@stanceRR
-            u = u[0:6]
+            u_wrenches = self.jacobian_FL_fun(H, joint_position)[0:3, 6:18].T@foot_force_fl@stanceFL
+            u_wrenches += self.jacobian_FR_fun(H, joint_position)[0:3, 6:18].T@foot_force_fr@stanceFR
+            u_wrenches += self.jacobian_RL_fun(H, joint_position)[0:3, 6:18].T@foot_force_rl@stanceRL
+            u_wrenches += self.jacobian_RR_fun(H, joint_position)[0:3, 6:18].T@foot_force_rr@stanceRR
+            u_wrenches = u_wrenches[0:6]
 
 
             joints_velocities = inputs[0:12]
             base_velocities = cs.vertcat(linear_com_vel, w)
             eta = self.bias_force_fun(H, joint_position, base_velocities, joints_velocities)[0:6]
-            eta += self.gravity_fun(H, joint_position)[0:6]
             inertia_base = self.mass_mass_fun(H, joint_position)[0:6, 0:6]
-            acc = cs.pinv(inertia_base)@(-eta + u)
+            acc = cs.inv(inertia_base)@(-eta + u_wrenches)
+            
 
 
             linear_com_acc = acc[0:3]
