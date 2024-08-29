@@ -622,7 +622,7 @@ class Acados_NMPC_KinoDynamic:
         Q_base_angle = np.array([500, 500, 0])  #roll, pitch, yaw
         Q_base_angle_rates = np.array([20, 20, 50]) #roll_rate, pitch_rate, yaw_rate
         
-        Q_foot_pos = np.array([3000, 3000, 30000]) #f_x, f_y, f_z (should be 4 times this, once per foot)
+        Q_foot_pos = np.array([300, 300, 30000]) #f_x, f_y, f_z (should be 4 times this, once per foot)
         Q_com_position_z_integral = np.array([50]) #integral of z_com
         Q_com_velocity_x_integral = np.array([10]) #integral of x_com
         Q_com_velocity_y_integral = np.array([10]) #integral of y_com
@@ -1194,16 +1194,17 @@ class Acados_NMPC_KinoDynamic:
         if(self.previous_yaw is None):
             self.previous_yaw = state["orientation"][2]
 
-        num_rotations = self.previous_yaw / (2 * np.pi)
+        # Calculate the difference between the current yaw and the previous yaw
+        yaw_diff = state["orientation"][2] - self.previous_yaw
 
-        if (state["orientation"][2] - self.previous_yaw) > np.pi:
-            state["orientation"][2] -= 2 * np.pi
-        elif (state["orientation"][2] - self.previous_yaw) < -np.pi:
-            state["orientation"][2] += 2 * np.pi
+        # Normalize the yaw difference to be within the range [-pi, pi]
+        yaw_diff = (yaw_diff + np.pi) % (2 * np.pi) - np.pi
 
-        print("yaw", state["orientation"][2])
-        print("previous_yaw", self.previous_yaw)
+        # Update the current yaw based on the normalized difference
+        state["orientation"][2] = self.previous_yaw + yaw_diff
 
+
+        # Update the previous yaw
         self.previous_yaw = state["orientation"][2]
 
         return state, reference, constraint
@@ -1456,45 +1457,6 @@ class Acados_NMPC_KinoDynamic:
 
 
 
-        print("yaw: ", yaw)
-        print("predicted yaw: ", self.acados_ocp_solver.get(1, "x")[8])
-        print("roll: ", state["orientation"][0])
-        print("predicted roll: ", self.acados_ocp_solver.get(1, "x")[6])
-        print("pitch: ", state["orientation"][1])
-        print("predicted pitch: ", self.acados_ocp_solver.get(1, "x")[7])
-
-        
-        
-        # Print predicted foot position FL
-        predicted_joint_position = self.acados_ocp_solver.get(1, "x")[12:24]
-        H_predicted = np.eye(4)
-        roll_predicted, pitch_predicted, yaw_predicted = self.acados_ocp_solver.get(1, "x")[6:9]
-        #breakpoint()
-        H_predicted[0:3, 0:3] = SO3.from_euler((np.array([roll_predicted, pitch_predicted, yaw_predicted]))).as_matrix()
-        H_predicted[0:3, 3] = self.acados_ocp_solver.get(1, "x")[0:3]
-        
-        foot_predicted_FL = np.array(self.centroidal_model.forward_kinematics_FR_fun(H_predicted, predicted_joint_position)[0:3, 3])
-        print("foot_predicted_FL: ", foot_predicted_FL)
-
-        # Print actual foot position FL
-        actual_joint_position = np.concatenate((state["joint_FL"], state["joint_FR"], state["joint_RL"], state["joint_RR"]))
-        H_actual = np.eye(4)
-        roll_actual, pitch_actual, yaw_actual = state["orientation"]
-        H_actual[0:3, 0:3] = SO3.from_euler(np.array([roll_actual, pitch_actual, yaw_actual])).as_matrix()
-        H_actual[0:3, 3] = state["position"]
-        foot_actual_FL = np.array(self.centroidal_model.forward_kinematics_FR_fun(H_actual, actual_joint_position)[0:3, 3])
-        print("foot_actual_FL: ", foot_actual_FL)
-
-        print("H_predicted: ", H_predicted)
-        print("H_actual: ", H_actual)
-
-
-        print("actual joint position: ", actual_joint_position)
-        print("predicted joint position: ", predicted_joint_position)
-        
-        
-
-
 
         # Then we take the foothold at the next touchdown from the one 
         # that are not flagged as True from before, and saturate them!!   
@@ -1634,18 +1596,6 @@ class Acados_NMPC_KinoDynamic:
         optimal_next_state[0:3] = optimal_next_state[0:3] + self.initial_base_position
         optimal_joint_positions = optimal_next_state[12:24]
 
-
-        
-        """roll_predicted, pitch_predicted, yaw_predicted = self.acados_ocp_solver.get(optimal_next_state_index, "x")[6:9]
-        b_R_w_predicted = self.centroidal_model.compute_b_R_w(roll_predicted, pitch_predicted, yaw_predicted)
-        H = cs.SX.eye(4)
-        H[0:3, 0:3] = b_R_w_predicted.T
-        H[0:3, 3] = optimal_next_state[0:3]
-        predicted_joint_position = self.acados_ocp_solver.get(optimal_next_state_index, "x")[12:24]
-        optimal_foothold[0] = np.array(self.centroidal_model.forward_kinematics_FL_fun(H, predicted_joint_position)[0:3, 3])
-        optimal_foothold[1] = np.array(self.centroidal_model.forward_kinematics_FR_fun(H, predicted_joint_position)[0:3, 3])
-        optimal_foothold[2] = np.array(self.centroidal_model.forward_kinematics_RL_fun(H, predicted_joint_position)[0:3, 3])
-        optimal_foothold[3] = np.array(self.centroidal_model.forward_kinematics_RR_fun(H, predicted_joint_position)[0:3, 3])"""
 
 
 
