@@ -8,6 +8,7 @@ import numpy as np
 import scipy.linalg
 import casadi as cs
 import copy
+import math
 
 import time
 
@@ -53,6 +54,7 @@ class Acados_NMPC_KinoDynamic:
 
         # For centering the variable around 0, 0, 0 (World frame)
         self.initial_base_position = np.array([0, 0, 0])
+        self.previous_yaw = None
 
         
         # Create the class of the centroidal model and instantiate the acados model
@@ -170,7 +172,7 @@ class Acados_NMPC_KinoDynamic:
             self.nsh_stability_end = copy.copy(nsh)
 
         
-        """self.nsh_foot_vel_start = copy.copy(nsh)
+        self.nsh_foot_vel_start = copy.copy(nsh)
         
         expr_h_foot_vel, \
         self.constr_uh_foot_vel, \
@@ -183,7 +185,7 @@ class Acados_NMPC_KinoDynamic:
         ocp.constraints.uh_0 = np.concatenate((self.constr_uh_friction, self.constr_uh_foot_vel))
         ocp.constraints.lh_0 = np.concatenate((self.constr_lh_friction, self.constr_lh_foot_vel))
 
-        nsh += expr_h_foot_vel.shape[0]"""
+        nsh += expr_h_foot_vel.shape[0]
 
         nsh_state_constraint_end = copy.copy(nsh)
 
@@ -305,13 +307,15 @@ class Acados_NMPC_KinoDynamic:
 
     def create_foot_vel_constraints(self,) -> None: 
         
-        qvel_FL = self.centroidal_model.inputs[0:3]
-        qvel_FR = self.centroidal_model.inputs[3:6]
-        qvel_RL = self.centroidal_model.inputs[6:9]
-        qvel_RR  = self.centroidal_model.inputs[9:12]
+        qvel_joints_FL = self.centroidal_model.inputs[0:3]
+        qvel_joints_FR = self.centroidal_model.inputs[3:6]
+        qvel_joints_RL = self.centroidal_model.inputs[6:9]
+        qvel_joints_RR  = self.centroidal_model.inputs[9:12]
 
         joint_position = self.centroidal_model.states[12:24]
         com_position = self.centroidal_model.states[0:3]
+        com_velocity = self.centroidal_model.states[3:6]
+        com_angular_velocity = self.centroidal_model.states[9:12]
         roll = self.centroidal_model.states[6]
         pitch = self.centroidal_model.states[7]
         yaw = self.centroidal_model.states[8]
@@ -321,12 +325,15 @@ class Acados_NMPC_KinoDynamic:
         H[0:3, 3] = com_position
 
         
-        qvel = cs.vertcat(qvel_FL, qvel_FR, qvel_RL, qvel_RR)
+        qvel = cs.vertcat(com_velocity, com_angular_velocity, qvel_joints_FL, qvel_joints_FR, qvel_joints_RL, qvel_joints_RR)
+
+        #breakpoint()
         
-        foot_vel_FL = self.centroidal_model.jacobian_FL_fun(H, joint_position)[0:3, 6:18]@qvel #qvel_FL
-        foot_vel_FR = self.centroidal_model.jacobian_FR_fun(H, joint_position)[0:3, 6:18]@qvel #qvel_FR
-        foot_vel_RL = self.centroidal_model.jacobian_RL_fun(H, joint_position)[0:3, 6:18]@qvel #qvel_RL
-        foot_vel_RR = self.centroidal_model.jacobian_RR_fun(H, joint_position)[0:3, 6:18]@qvel #qvel_RR
+        foot_vel_FL = self.centroidal_model.jacobian_FL_fun(H, joint_position)[0:3,:]@qvel #qvel_FL
+        foot_vel_FR = self.centroidal_model.jacobian_FR_fun(H, joint_position)[0:3,:]@qvel #qvel_FR
+        foot_vel_RL = self.centroidal_model.jacobian_RL_fun(H, joint_position)[0:3,:]@qvel #qvel_RL
+        foot_vel_RR = self.centroidal_model.jacobian_RR_fun(H, joint_position)[0:3,:]@qvel #qvel_RR
+
 
         ub = np.ones(12)*1000
         lb = -np.ones(12)*1000
@@ -1109,21 +1116,21 @@ class Acados_NMPC_KinoDynamic:
             lb_no_slip_foot_vel[6:9] = lb_no_slip_foot_vel[6:9]*(1-contact_sequence[2,j])
             lb_no_slip_foot_vel[9:12] = lb_no_slip_foot_vel[9:12]*(1-contact_sequence[3,j])
 
-            #ub_total = np.concatenate((ub_friction, ub_no_slip_foot_vel))
-            #lb_total = np.concatenate((lb_friction, lb_no_slip_foot_vel))
+            ub_total = np.concatenate((ub_friction, ub_no_slip_foot_vel))
+            lb_total = np.concatenate((lb_friction, lb_no_slip_foot_vel))
 
             #print("j", j)
-            self.acados_ocp_solver.constraints_set(j, "uh", ub_total)
-            self.acados_ocp_solver.constraints_set(j, "lh", lb_total)
+            #self.acados_ocp_solver.constraints_set(j, "uh", ub_total)
+            #self.acados_ocp_solver.constraints_set(j, "lh", lb_total)
 
 
             # Only friction costraints at the beginning
-            if(j == 0):
-                self.acados_ocp_solver.constraints_set(j, "uh", ub_friction)
-                self.acados_ocp_solver.constraints_set(j, "lh", lb_friction)
-            if(j > 0):
-                self.acados_ocp_solver.constraints_set(j, "uh", ub_total)
-                self.acados_ocp_solver.constraints_set(j, "lh", lb_total)
+            #if(j == 0):
+            #    self.acados_ocp_solver.constraints_set(j, "uh", ub_friction)
+            #    self.acados_ocp_solver.constraints_set(j, "lh", lb_friction)
+            #if(j > 0):
+            #    self.acados_ocp_solver.constraints_set(j, "uh", ub_total)
+            #    self.acados_ocp_solver.constraints_set(j, "lh", lb_total)
 
 
 
@@ -1182,6 +1189,22 @@ class Acados_NMPC_KinoDynamic:
         state["foot_RR"] = state["foot_RR"] - state["position"]
         state["position"] = np.array([0, 0, 0])
 
+  
+        # Perform a wrapping of the yaw angle
+        if(self.previous_yaw is None):
+            self.previous_yaw = state["orientation"][2]
+
+        num_rotations = self.previous_yaw / (2 * np.pi)
+
+        if (state["orientation"][2] - self.previous_yaw) > np.pi:
+            state["orientation"][2] -= 2 * np.pi
+        elif (state["orientation"][2] - self.previous_yaw) < -np.pi:
+            state["orientation"][2] += 2 * np.pi
+
+        print("yaw", state["orientation"][2])
+        print("previous_yaw", self.previous_yaw)
+
+        self.previous_yaw = state["orientation"][2]
 
         return state, reference, constraint
 
@@ -1383,7 +1406,7 @@ class Acados_NMPC_KinoDynamic:
         # Set stage constraint
         h_R_w = np.array([np.cos(yaw), np.sin(yaw),
                         -np.sin(yaw), np.cos(yaw)])
-        #self.set_stage_constraint(constraint, state, reference, contact_sequence, h_R_w)
+        self.set_stage_constraint(constraint, state, reference, contact_sequence, h_R_w)
 
         
         # Solve ocp via RTI or normal ocp
@@ -1430,6 +1453,46 @@ class Acados_NMPC_KinoDynamic:
         if RR_contact_sequence[0] == 1:
             optimal_foothold[3] = state["foot_RR"]
             optimal_footholds_assigned[3] = True
+
+
+
+        print("yaw: ", yaw)
+        print("predicted yaw: ", self.acados_ocp_solver.get(1, "x")[8])
+        print("roll: ", state["orientation"][0])
+        print("predicted roll: ", self.acados_ocp_solver.get(1, "x")[6])
+        print("pitch: ", state["orientation"][1])
+        print("predicted pitch: ", self.acados_ocp_solver.get(1, "x")[7])
+
+        
+        
+        # Print predicted foot position FL
+        predicted_joint_position = self.acados_ocp_solver.get(1, "x")[12:24]
+        H_predicted = np.eye(4)
+        roll_predicted, pitch_predicted, yaw_predicted = self.acados_ocp_solver.get(1, "x")[6:9]
+        #breakpoint()
+        H_predicted[0:3, 0:3] = SO3.from_euler((np.array([roll_predicted, pitch_predicted, yaw_predicted]))).as_matrix()
+        H_predicted[0:3, 3] = self.acados_ocp_solver.get(1, "x")[0:3]
+        
+        foot_predicted_FL = np.array(self.centroidal_model.forward_kinematics_FR_fun(H_predicted, predicted_joint_position)[0:3, 3])
+        print("foot_predicted_FL: ", foot_predicted_FL)
+
+        # Print actual foot position FL
+        actual_joint_position = np.concatenate((state["joint_FL"], state["joint_FR"], state["joint_RL"], state["joint_RR"]))
+        H_actual = np.eye(4)
+        roll_actual, pitch_actual, yaw_actual = state["orientation"]
+        H_actual[0:3, 0:3] = SO3.from_euler(np.array([roll_actual, pitch_actual, yaw_actual])).as_matrix()
+        H_actual[0:3, 3] = state["position"]
+        foot_actual_FL = np.array(self.centroidal_model.forward_kinematics_FR_fun(H_actual, actual_joint_position)[0:3, 3])
+        print("foot_actual_FL: ", foot_actual_FL)
+
+        print("H_predicted: ", H_predicted)
+        print("H_actual: ", H_actual)
+
+
+        print("actual joint position: ", actual_joint_position)
+        print("predicted joint position: ", predicted_joint_position)
+        
+        
 
 
 

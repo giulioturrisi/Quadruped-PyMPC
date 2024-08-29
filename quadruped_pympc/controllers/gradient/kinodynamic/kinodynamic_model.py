@@ -23,7 +23,7 @@ from quadruped_pympc import config
 
 use_adam = True
 use_fixed_inertia = True
-use_centroidal_model = False
+use_centroidal_model = True
 
 if(use_adam):
     # ADAM import
@@ -343,9 +343,9 @@ class KinoDynamic_Model:
 
 
         # Compute the homogeneous transformation matrix
-        b_R_w = self.compute_b_R_w(roll, pitch, yaw)
-        #w_R_b = SO3.from_euler(np.array([roll, pitch, yaw])).as_matrix()
-        #b_R_w = w_R_b.T
+        # b_R_w = self.compute_b_R_w(roll, pitch, yaw)
+        w_R_b = SO3.from_euler(np.array([roll, pitch, yaw])).as_matrix()
+        b_R_w = w_R_b.T
         H = cs.SX.eye(4)
         H[0:3, 0:3] = b_R_w.T
         H[0:3, 3] = com_position
@@ -387,12 +387,13 @@ class KinoDynamic_Model:
         temp2 = temp2 + external_wrench_angular
         angular_acc_base = cs.inv(inertia)@(b_R_w@temp2 - cs.skew(w)@inertia@w)
 
+        #breakpoint()
 
         if(not use_centroidal_model):
-            u_wrenches = self.jacobian_FL_fun(H, joint_position)[0:3, 6:18].T@foot_force_fl@stanceFL
-            u_wrenches += self.jacobian_FR_fun(H, joint_position)[0:3, 6:18].T@foot_force_fr@stanceFR
-            u_wrenches += self.jacobian_RL_fun(H, joint_position)[0:3, 6:18].T@foot_force_rl@stanceRL
-            u_wrenches += self.jacobian_RR_fun(H, joint_position)[0:3, 6:18].T@foot_force_rr@stanceRR
+            u_wrenches = self.jacobian_FL_fun(H, joint_position)[0:3, :].T@foot_force_fl@stanceFL
+            u_wrenches += self.jacobian_FR_fun(H, joint_position)[0:3, :].T@foot_force_fr@stanceFR
+            u_wrenches += self.jacobian_RL_fun(H, joint_position)[0:3, :].T@foot_force_rl@stanceRL
+            u_wrenches += self.jacobian_RR_fun(H, joint_position)[0:3, :].T@foot_force_rr@stanceRR
             u_wrenches = u_wrenches[0:6]
 
 
