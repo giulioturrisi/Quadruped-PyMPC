@@ -446,7 +446,10 @@ class Acados_NMPC_Impedence:
 
         R_mat = np.diag(np.concatenate((R_foot_vel, R_foot_vel, R_foot_vel, R_foot_vel,
                                         R_foot_force, R_foot_force, R_foot_force, R_foot_force,
-                                        R_foot_impedence, R_foot_impedence, R_foot_impedence, R_foot_impedence)))
+                                        R_foot_impedence, R_foot_impedence, #kp, kd, for x and y
+                                        R_foot_impedence, R_foot_impedence,
+                                        R_foot_impedence, R_foot_impedence,
+                                        R_foot_impedence, R_foot_impedence)))
 
         return Q_mat, R_mat
 
@@ -1181,7 +1184,14 @@ class Acados_NMPC_Impedence:
         
         # Take the solution
         control = self.acados_ocp_solver.get(0, "u")
-        optimal_GRF = control[12:]
+        optimal_GRFs_z = control[12:16]
+        optimal_GRF_FL = np.array([0.0, 0.0, optimal_GRFs_z[0]])
+        optimal_GRF_FR = np.array([0.0, 0.0, optimal_GRFs_z[1]])
+        optimal_GRF_RL = np.array([0.0, 0.0, optimal_GRFs_z[2]])
+        optimal_GRF_RR = np.array([0.0, 0.0, optimal_GRFs_z[3]])
+        optimal_GRF = np.concatenate((optimal_GRF_FL, optimal_GRF_FR, optimal_GRF_RL, optimal_GRF_RR))
+        
+
         optimal_foothold = np.zeros((4, 3))
         optimal_footholds_assigned = np.zeros((4,), dtype='bool')
 

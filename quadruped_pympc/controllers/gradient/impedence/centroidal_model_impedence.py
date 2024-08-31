@@ -193,10 +193,14 @@ class Centroidal_Model_Impedence:
         foot_velocity_fr = inputs[3:6]
         foot_velocity_rl = inputs[6:9]
         foot_velocity_rr = inputs[9:12]
-        foot_force_fl = inputs[12]
-        foot_force_fr = inputs[13]
-        foot_force_rl = inputs[14]
-        foot_force_rr = inputs[15]
+        foot_force_z_fl = inputs[12]
+        foot_force_z_fr = inputs[13]
+        foot_force_z_rl = inputs[14]
+        foot_force_z_rr = inputs[15]
+        foot_force_fl = cs.vertcat(0, 0, foot_force_z_fl)
+        foot_force_fr = cs.vertcat(0, 0, foot_force_z_fr)
+        foot_force_rl = cs.vertcat(0, 0, foot_force_z_rl)
+        foot_force_rr = cs.vertcat(0, 0, foot_force_z_rr)
 
         foot_impedences_fl = inputs[16:20]
         foot_impedences_fr = inputs[20:24]
