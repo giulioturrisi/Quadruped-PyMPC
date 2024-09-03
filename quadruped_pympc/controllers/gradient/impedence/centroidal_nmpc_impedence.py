@@ -170,10 +170,15 @@ class Acados_NMPC_Impedence:
         init_external_wrench = np.array([0, 0, 0, 0, 0, 0])
         init_inertia = config.inertia.reshape((9,))
         init_mass = np.array([config.mass])
+        init_foot_impedence_position_desired = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        init_foot_impedence_velocity_desired = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
         ocp.parameter_values = np.concatenate((init_contact_status, init_mu, init_stance_proximity,
                                                init_base_position, init_base_yaw, init_external_wrench,
-                                               init_inertia, init_mass))
+                                               init_inertia, init_mass, 
+                                               init_foot_impedence_position_desired, init_foot_impedence_velocity_desired))
 
         # Set options
         ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"  # FULL_CONDENSING_QPOASES PARTIAL_CONDENSING_OSQP
@@ -427,6 +432,7 @@ class Acados_NMPC_Impedence:
         Q_com_velocity_z_integral = np.array([10])  # integral of z_com_vel
         Q_roll_integral_integral = np.array([10])  # integral of roll
         Q_pitch_integral_integral = np.array([10])  # integral of pitch
+        Q_foot_position_impedence = np.array([0.0, 0.0, 0.0])  
 
         R_foot_vel = np.array([0.0001, 0.0001, 0.00001])  # v_x, v_y, v_z (should be 4 times this, once per foot)
         if (config.robot == "hyqreal"):
@@ -442,7 +448,9 @@ class Acados_NMPC_Impedence:
                                         Q_foot_pos, Q_foot_pos, Q_foot_pos, Q_foot_pos,
                                         Q_com_position_z_integral, Q_com_velocity_x_integral,
                                         Q_com_velocity_y_integral, Q_com_velocity_z_integral,
-                                        Q_roll_integral_integral, Q_pitch_integral_integral)))
+                                        Q_roll_integral_integral, Q_pitch_integral_integral,
+                                        Q_foot_position_impedence, Q_foot_position_impedence, 
+                                        Q_foot_position_impedence, Q_foot_position_impedence)))
 
         R_mat = np.diag(np.concatenate((R_foot_vel, R_foot_vel, R_foot_vel, R_foot_vel,
                                         R_foot_force, R_foot_force, R_foot_force, R_foot_force,
@@ -1150,11 +1158,19 @@ class Acados_NMPC_Impedence:
             print("self.integral_errors: ", self.integral_errors)
 
         # Set initial state constraint acados, converting first the dictionary to np array
+        foot_impedence_FL = np.array([0, 0, 0])
+        foot_impedence_FR = np.array([0, 0, 0])
+        foot_impedence_RL = np.array([0, 0, 0])
+        foot_impedence_RR = np.array([0, 0, 0])
         state_acados = np.concatenate((state["position"], state["linear_velocity"],
                                        state["orientation"], state["angular_velocity"],
                                        state["foot_FL"], state["foot_FR"],
                                        state["foot_RL"], state["foot_RR"],
-                                       self.integral_errors)).reshape((self.states_dim, 1))
+                                       self.integral_errors,
+                                       foot_impedence_FL,
+                                       foot_impedence_FR,
+                                       foot_impedence_RL,
+                                       foot_impedence_RR)).reshape((self.states_dim, 1))
         self.acados_ocp_solver.set(0, "lbx", state_acados)
         self.acados_ocp_solver.set(0, "ubx", state_acados)
 

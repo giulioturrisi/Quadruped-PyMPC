@@ -63,6 +63,13 @@ class Centroidal_Model_Impedence:
         omega_y_integral = cs.SX.sym("omega_y_integral")
         omega_z_integral = cs.SX.sym("omega_z_integral")
 
+        foot_impedence_position_fl = cs.SX.sym("foot_impedence_position_fl", 3, 1)
+        foot_impedence_position_fr = cs.SX.sym("foot_impedence_position_fr", 3, 1)
+        foot_impedence_position_rl = cs.SX.sym("foot_impedence_position_rl", 3, 1)
+        foot_impedence_position_rr = cs.SX.sym("foot_impedence_position_rr", 3, 1)
+
+        
+
 
         self.states = cs.vertcat(com_position_x,
                             com_position_y,
@@ -85,7 +92,11 @@ class Centroidal_Model_Impedence:
                             com_velocity_y_integral,
                             com_velocity_z_integral,
                             roll_integral,
-                            pitch_integral)
+                            pitch_integral,
+                            foot_impedence_position_fl,
+                            foot_impedence_position_fr,
+                            foot_impedence_position_rl,
+                            foot_impedence_position_rr)
         
 
 
@@ -101,7 +112,11 @@ class Centroidal_Model_Impedence:
                                      cs.SX.sym("linear_com_vel_z_integral", 1, 1),
                                      cs.SX.sym("linear_com_acc_integral", 3, 1),
                                      cs.SX.sym("euler_rates_roll_integral", 1, 1),
-                                     cs.SX.sym("euler_rates_pitch_integral", 1, 1))
+                                     cs.SX.sym("euler_rates_pitch_integral", 1, 1),
+                                     cs.SX.sym("foot_impedence_velocity_fl", 3, 1),
+                                     cs.SX.sym("foot_impedence_velocity_fr", 3, 1),
+                                     cs.SX.sym("foot_impedence_velocity_rl", 3, 1),
+                                     cs.SX.sym("foot_impedence_velocity_rr", 3, 1))
         
 
 
@@ -113,10 +128,10 @@ class Centroidal_Model_Impedence:
 
 
         # Kp and Kd for the impedance controller for each foot
-        foot_impedence_fl_xy = cs.SX.sym("foot_impedence_fl", 4, 1)
-        foot_impedence_fr_xy = cs.SX.sym("foot_impedence_fr", 4, 1)
-        foot_impedence_rl_xy = cs.SX.sym("foot_impedence_rl", 4, 1)
-        foot_impedence_rr_xy = cs.SX.sym("foot_impedence_rr", 4, 1)
+        foot_impedence_gain_fl_xy = cs.SX.sym("foot_impedence_fl", 4, 1)
+        foot_impedence_gain_fr_xy = cs.SX.sym("foot_impedence_fr", 4, 1)
+        foot_impedence_gain_rl_xy = cs.SX.sym("foot_impedence_rl", 4, 1)
+        foot_impedence_gain_rr_xy = cs.SX.sym("foot_impedence_rr", 4, 1)
         
         # Only z is force controlled
         foot_force_fl_z = cs.SX.sym("foot_force_fl_z", 1, 1)
@@ -132,10 +147,10 @@ class Centroidal_Model_Impedence:
                             foot_force_fr_z, 
                             foot_force_rl_z, 
                             foot_force_rr_z,
-                            foot_impedence_fl_xy,
-                            foot_impedence_fr_xy,
-                            foot_impedence_rl_xy,
-                            foot_impedence_rr_xy)
+                            foot_impedence_gain_fl_xy,
+                            foot_impedence_gain_fr_xy,
+                            foot_impedence_gain_rl_xy,
+                            foot_impedence_gain_rr_xy)
         
         
 
@@ -162,12 +177,15 @@ class Centroidal_Model_Impedence:
         self.inertia = cs.SX.sym("inertia", 9, 1)
         self.mass = cs.SX.sym("mass", 1, 1)
 
+        self.foot_impedence_position_desired = cs.SX.sym("foot_impedence_position_desired", 12, 1)
+        self.foot_impedence_velocity_desired = cs.SX.sym("foot_impedence_velocity_desired", 12, 1)
+
 
         # Not so useful, i can instantiate a casadi function for the fd
-        param = cs.vertcat(self.stance_param, self.mu_friction, self.stance_proximity,
-                           self.base_position, self.base_yaw, self.external_wrench, self.inertia, self.mass)
-        fd = self.forward_dynamics(self.states, self.inputs, param)
-        self.fun_forward_dynamics = cs.Function('fun_forward_dynamics', [self.states, self.inputs, param], [fd])
+        #param = cs.vertcat(self.stance_param, self.mu_friction, self.stance_proximity,
+        #                   self.base_position, self.base_yaw, self.external_wrench, self.inertia, self.mass)
+        #fd = self.forward_dynamics(self.states, self.inputs, param)
+        #self.fun_forward_dynamics = cs.Function('fun_forward_dynamics', [self.states, self.inputs, param], [fd])
 
 
 
@@ -202,10 +220,10 @@ class Centroidal_Model_Impedence:
         foot_force_rl = cs.vertcat(0, 0, foot_force_z_rl)
         foot_force_rr = cs.vertcat(0, 0, foot_force_z_rr)
 
-        foot_impedences_fl = inputs[16:20]
-        foot_impedences_fr = inputs[20:24]
-        foot_impedences_rl = inputs[24:28]
-        foot_impedences_rr = inputs[28:32]
+        foot_impedences_gain_fl_xy = inputs[16:20]
+        foot_impedences_gain_fr_xy = inputs[20:24]
+        foot_impedences_gain_rl_xy = inputs[24:28]
+        foot_impedences_gain_rr_xy = inputs[28:32]
 
         com_position = states[0:3]
         foot_position_fl = states[12:15]
@@ -228,6 +246,16 @@ class Centroidal_Model_Impedence:
         inertia = param[19:28]
         inertia = inertia.reshape((3, 3))
         mass = param[28]
+
+        foot_impedences_position_fl = states[30:33] + com_position
+        foot_impedences_position_fr = states[33:36] + com_position
+        foot_impedences_position_rl = states[36:39] + com_position
+        foot_impedences_position_rr = states[39:42] + com_position
+        #TODO
+        #foot_force_fl[0:2] = foot_impedences_gain_fl_xy[0]@(param-foot_impedences_position_fl) + ....
+        #foot_force_fr[0:2] = foot_impedences_gain_fr_xy[0]@(param-foot_impedences_position_fr) + ....
+        #foot_force_rl[0:2] = foot_impedences_gain_rl_xy[0]@(param-foot_impedences_position_rl) + ....
+        #foot_force_rr[0:2] = foot_impedences_gain_rr_xy[0]@(param-foot_impedences_position_rr) + ....
 
 
         # FINAL linear_com_vel STATE (1)
@@ -323,7 +351,7 @@ class Centroidal_Model_Impedence:
         linear_foot_vel_RR = foot_velocity_rr@(1-stanceRR)@(1-stance_proximity_RR)
 
         # Integral states
-        integral_states = states[24:]
+        integral_states = states[24:30]
         integral_states[0] += states[2]
         integral_states[1] += states[3]
         integral_states[2] += states[4]
@@ -331,10 +359,18 @@ class Centroidal_Model_Impedence:
         integral_states[4] += roll
         integral_states[5] += pitch
 
+
+        # Velocity of the foot impedences (this is a relative quantities!!)
+        foot_impedence_velocity_fl = -linear_com_vel#*yaw_vero
+        foot_impedence_velocity_fr = -linear_com_vel#*yaw_vero
+        foot_impedence_velocity_rl = -linear_com_vel#*yaw_vero
+        foot_impedence_velocity_rr = -linear_com_vel#*yaw_vero
+
         
         # The order of the return should be equal to the order of the states_dot
         return cs.vertcat(linear_com_vel, linear_com_acc, euler_rates_base, angular_acc_base, 
-                          linear_foot_vel_FL,linear_foot_vel_FR, linear_foot_vel_RL, linear_foot_vel_RR, integral_states)
+                          linear_foot_vel_FL,linear_foot_vel_FR, linear_foot_vel_RL, linear_foot_vel_RR, integral_states,
+                          foot_impedence_velocity_fl, foot_impedence_velocity_fr, foot_impedence_velocity_rl, foot_impedence_velocity_rr)
     
     
 
@@ -347,7 +383,8 @@ class Centroidal_Model_Impedence:
  
         # dynamics
         self.param = cs.vertcat(self.stance_param, self.mu_friction, self.stance_proximity, self.base_position, 
-                           self.base_yaw, self.external_wrench, self.inertia, self.mass)
+                           self.base_yaw, self.external_wrench, self.inertia, self.mass,
+                           self.foot_impedence_position_desired, self.foot_impedence_velocity_desired)
         f_expl = self.forward_dynamics(self.states, self.inputs, self.param)
         f_impl = self.states_dot - f_expl
 
