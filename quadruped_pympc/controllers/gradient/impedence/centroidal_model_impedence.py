@@ -181,6 +181,11 @@ class Centroidal_Model_Impedence:
         self.foot_impedence_velocity_desired = cs.SX.sym("foot_impedence_velocity_desired", 12, 1)
 
 
+        self.param = cs.vertcat(self.stance_param, self.mu_friction, self.stance_proximity, self.base_position, 
+                           self.base_yaw, self.external_wrench, self.inertia, self.mass,
+                           self.foot_impedence_position_desired, self.foot_impedence_velocity_desired)
+
+
         # Not so useful, i can instantiate a casadi function for the fd
         #param = cs.vertcat(self.stance_param, self.mu_friction, self.stance_proximity,
         #                   self.base_position, self.base_yaw, self.external_wrench, self.inertia, self.mass)
@@ -382,9 +387,6 @@ class Centroidal_Model_Impedence:
         """
  
         # dynamics
-        self.param = cs.vertcat(self.stance_param, self.mu_friction, self.stance_proximity, self.base_position, 
-                           self.base_yaw, self.external_wrench, self.inertia, self.mass,
-                           self.foot_impedence_position_desired, self.foot_impedence_velocity_desired)
         f_expl = self.forward_dynamics(self.states, self.inputs, self.param)
         f_impl = self.states_dot - f_expl
 
